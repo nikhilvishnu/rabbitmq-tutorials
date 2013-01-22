@@ -1,26 +1,29 @@
 <?php
 
-require_once(__DIR__ . '/lib/php-amqplib/amqp.inc');
+//require_once(__DIR__ . '/lib/php-amqplib/amqp.inc');
 
-$connection = new AMQPConnection('localhost', 5672, 'guest', 'guest');
-$channel = $connection->channel();
+$connection = new AMQPConnection();
+$connection->setLogin('mob_apper_admin');
+$connection->setPassword('dian_alley');
+$connection->setVhost('dian_alley');
 
+$connection->connect();
 
-$channel->queue_declare('hello', false, false, false, false);
+// Open channel
+$channel    = new AMQPChannel($connection);
 
-echo ' [*] Waiting for messages. To exit press CTRL+C', "\n";
+// Open Queue and bind to exchange
+$queue      = new AMQPQueue($channel);
+$queue->setName('queue1');
+$queue->bind('exchange1', 'key1');
+$queue->declare();
 
-$callback = function($msg) {
-  echo " [x] Received ", $msg->body, "\n";
-};
-
-$channel->basic_consume('hello', '', false, true, false, false, $callback);
-
-while(count($channel->callbacks)) {
-    $channel->wait();
+// Prevent message redelivery with AMQP_AUTOACK param
+while ($envelope = $queue->get(AMQP_AUTOACK)) {
+    echo ($envelope->isRedelivery()) ? 'Redelivery' : 'New Message';
+    echo PHP_EOL;
+    echo $envelope->getBody(), PHP_EOL;
 }
 
-$channel->close();
-$connection->close();
 
 ?>
